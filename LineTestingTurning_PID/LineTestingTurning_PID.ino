@@ -1,5 +1,11 @@
 #include <QTRSensors.h>
 
+// PID Values
+double kp = 2;
+double ki = 5;
+double kd = 1;
+int last_error = 0;
+
 //First H Bridge
 
 int m1_speed = 9; //Motor 1
@@ -21,7 +27,7 @@ int m4_in2 = 10; //m2_in1 of second H Bridge
 
 // Line Follower Stuff
 QTRSensors qtr;
-const uint8_t SensorCount = 4;
+const uint8_t SensorCount = 3;
 uint16_t sensorValues[SensorCount];
 int linePassed = 0;
 
@@ -53,9 +59,8 @@ void setup() {
   //Line Follower Stuff
   // configure the sensors
   qtr.setTypeRC();
-  qtr.setSensorPins((const uint8_t[]) {
-    4, 5, 8, 41
-  }, SensorCount);
+  // qtr.setSensorPins((const uint8_t[]){3, 4, 5, 6, 7, 8, 9, 10}, SensorCount);
+  qtr.setSensorPins((const uint8_t[]) { 4, 5, 8}, SensorCount);
   qtr.setEmitterPin(2);
 
   delay(500);
@@ -92,7 +97,7 @@ void setup() {
 }
 
 void forward() {
-  int forward_speed = 35;
+  int forward_speed = 65;
   Serial.println("Going Straight");
   digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
   digitalWrite(m1_in2, HIGH);
@@ -113,85 +118,66 @@ void forward() {
 
 void adjRight() {
   Serial.println("Shift Right");
-  int right_speed = 50;
-  digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
-  digitalWrite(m1_in2, HIGH);
+  int right_speed = 64;
+  digitalWrite(m1_in1, HIGH); //Clockwise for Motor 1
+  digitalWrite(m2_in2, LOW);
   analogWrite(m1_speed, right_speed);
 
-  digitalWrite(m2_in2, HIGH); //clockwise for Motor 2
-  digitalWrite(m2_in1, LOW);
+  digitalWrite(m2_in2, LOW); //clockwise for Motor 2
+  digitalWrite(m2_in1, HIGH);
   analogWrite(m2_speed, right_speed);
 
-  digitalWrite(m3_in1, LOW); // clockwise for Motor3
-  digitalWrite(m3_in2, HIGH);
+  digitalWrite(m3_in1, HIGH); // clockwise for Motor3
+  digitalWrite(m3_in2, LOW);
   analogWrite(m3_speed, right_speed);
 
-  digitalWrite(m4_in1, HIGH); // Connections for Motor4
-  digitalWrite(m4_in2, LOW);
+  digitalWrite(m4_in1, LOW); // Connections for Motor4
+  digitalWrite(m4_in2, HIGH);
   analogWrite(m4_speed, right_speed);
 }
 
 void adjLeft() {
 
   Serial.println("Shift Left");
-  int left_speed = 50;
-  digitalWrite(m1_in1, HIGH); //Clockwise for Motor 1
-  digitalWrite(m1_in2, LOW);
+  int left_speed = 64;
+  digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
+  digitalWrite(m2_in2, HIGH);
   analogWrite(m1_speed, left_speed);
 
-  digitalWrite(m2_in2, LOW); //clockwise for Motor 2
-  digitalWrite(m2_in1, HIGH);
+  digitalWrite(m2_in2, HIGH); //clockwise for Motor 2
+  digitalWrite(m2_in1, LOW);
   analogWrite(m2_speed, left_speed);
 
-  digitalWrite(m3_in1, HIGH); // clockwise for Motor3
-  digitalWrite(m3_in2, LOW);
+  digitalWrite(m3_in1, LOW); // clockwise for Motor3
+  digitalWrite(m3_in2, HIGH);
   analogWrite(m3_speed, left_speed);
 
-  digitalWrite(m4_in1, LOW); // Connections for Motor4
-  digitalWrite(m4_in2, HIGH);
+  digitalWrite(m4_in1, HIGH); // Connections for Motor4
+  digitalWrite(m4_in2, LOW);
   analogWrite(m4_speed, left_speed);
 }
 
 void left() {
   digitalWrite(m1_in1, HIGH); //CCW for Motor 1
   digitalWrite(m2_in2, LOW);
-  analogWrite(m1_speed, 100);
+  analogWrite(m1_speed, 90);
 
   digitalWrite(m2_in2, LOW); //CCW for Motor 2
   digitalWrite(m2_in1, HIGH);
-  analogWrite(m2_speed, 100);
+  analogWrite(m2_speed, 90);
 
   digitalWrite(m3_in1, HIGH); // CW for Motor3
   digitalWrite(m3_in2, LOW);
-  analogWrite(m3_speed, 100);
+  analogWrite(m3_speed, 90);
 
   digitalWrite(m4_in1, LOW); // CW for Motor4
   digitalWrite(m4_in2, HIGH);
-  analogWrite(m4_speed, 100);
-}
-
-void right() {
-  Serial.println("Full Right");
-  digitalWrite(m1_in1, LOW); //CCW for Motor 1
-  digitalWrite(m2_in2, HIGH);
-  analogWrite(m1_speed, 70);
-
-  digitalWrite(m2_in2, HIGH); //CCW for Motor 2
-  digitalWrite(m2_in1, LOW);
-  analogWrite(m2_speed, 70);
-
-  digitalWrite(m3_in1, LOW); // CW for Motor3
-  digitalWrite(m3_in2, HIGH);
-  analogWrite(m3_speed, 70);
-
-  digitalWrite(m4_in1, HIGH); // CW for Motor4
-  digitalWrite(m4_in2, LOW);
-  analogWrite(m4_speed, 70);
+  analogWrite(m4_speed, 90);
 }
 void stopMotor() {
   Serial.println("Stop Motor");
   digitalWrite(m1_in1, LOW); //Stop for Motor 1
-  digitalWrite(m1_in2, LOW);
+  digitalWrite(m2_in2, LOW);
 
   digitalWrite(m2_in2, LOW); //Stop for Motor 2
   digitalWrite(m2_in1, LOW);
@@ -204,89 +190,70 @@ void stopMotor() {
   digitalWrite(m4_in1, LOW); // Stop for Motor4
   digitalWrite(m4_in2, LOW);
 }
-
 void loop() {
-
+  
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 5000 (for a white line, use readLineWhite() instead)
   uint16_t position = qtr.readLineBlack(sensorValues);
+  //stopMotor();
   delay(50);
-  int maxVal = sensorValues[0];
-  int maxValLoc = 0;
-  for (int i = 0; i < 3; i++) {
-    if (sensorValues[i] > maxVal) {
-      maxVal = sensorValues[i];
-      maxValLoc = i;
-    }
-  }
   for (uint8_t i = 0; i < SensorCount; i++)
   {
     Serial.print(sensorValues[i]);
     Serial.print('\t');
   }
+  Serial.println(position);
+  // Perfect Position = 1000 when at middle.
+  int error;
+  int rightSpeed = 100;
+  int leftSpeed = 100;
+  error = 1000 - position;
 
-  // Line in the right
-  if (maxValLoc == 0) {
-    adjRight();
-  }
+  int motorSpeed = Kp * error + Kd * (error - last_error);
+  last_error = error;
 
-  // Line at the middle
-  else if (maxValLoc == 1) {
-    forward();
-  }
-
-  // Line at the left
-  else if (maxValLoc == 2) {
-    adjLeft();
-  }
-
-
-  // Pass a square
-  if (sensorValues[3] > 700) {
-    linePassed = linePassed + 1;
-    while (sensorValues[3] > 700) {
-      position = qtr.readLineBlack(sensorValues);
-      forward();
-    }
-    if (linePassed == 2) {
-      forward();
-      delay(300);
-      stopMotor();
-      delay(10000);
-      right();
-      delay(600);
-      position = qtr.readLineBlack(sensorValues);
-      for (uint8_t i = 0; i < 3; i++)
-        {
-          Serial.print(sensorValues[i]);
-          Serial.print('\t');
-        }
-        for (int i = 0; i < 3; i++) {
-          if (sensorValues[i] > maxVal) {
-            maxVal = sensorValues[i];
-            maxValLoc = i;
-          }
-        }
-      Serial.println(maxValLoc);
-      while (maxValLoc != 0 && sensorValues[0] > 500) {
-
-        for (uint8_t i = 0; i < 3; i++)
-        {
-          Serial.print(sensorValues[i]);
-          Serial.print('\t');
-        }
-
-        right();
-        position = qtr.readLineBlack(sensorValues);
-        for (int i = 0; i < 3; i++) {
-          if (sensorValues[i] > maxVal) {
-            maxVal = sensorValues[i];
-            maxValLoc = i;
-          }
-        }
-        Serial.println(maxValLoc);
-      }
-    }
-  }
-  Serial.println(linePassed);
+  
+  
+  //  // Line in the middle
+  //  if (position == 1000) {
+  //    forward();
+  //  }
+  //
+  //  // Line at the right
+  //  else if (position == 2000) {
+  //    adjLeft();
+  //  }
+  //
+  //  // Line at the left
+  //  else if (position == 0) {
+  //    adjRight();
+  //  }
+  //Pass a square
+  //  if (sensorValues[0] > 500 && sensorValues[1] > 500 && sensorValues[2] > 500 ) {
+  //    stopMotor();
+  //    linePassed = linePassed + 1;
+  //    Serial.println(linePassed);
+  //    delay(500);
+  //    forward();
+  //    delay(40);
+  //
+  //    if (linePassed == 3) {
+  //      delay(5000);
+  //      while (position!= 1000)
+  //      {
+  //        left();
+  //        delay(100);
+  //      }
+  //      //Go forward
+  //      forward();
+  //      delay(200);
+  //      //stopMotor();
+  //      delay(10000);
+  //    }
+  //  }
+  //
+  //  else {
+  //    forward();
+  //    delay(10);
+  //  }
 }
