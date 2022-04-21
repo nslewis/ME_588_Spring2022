@@ -7,8 +7,9 @@ having 3 different color squares (not including the starting square which will b
 each game, a TA will tell you the color of the squares where Moles are hiding. Your robot must then
 autonomously search the playing field for the Moles and place Mole-Whackers on those squares.
 
-## PLaying Field
+## Playing Field
 
+![Screenshot](playing_field.png)
 The playing field is a square plywood surface (8 ft. x 8 ft.) that has been separated into 16 equal sized
 squares. Side rails which are made of white foam board will be placed around the perimeter of the
 field to prevent robots from rolling off the field, shown as bold solid gray lines in Fig. 1. These rails
