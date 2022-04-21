@@ -9,7 +9,7 @@ autonomously search the playing field for the Moles and place Mole-Whackers on t
 
 ## Playing Field
 
-![Screenshot](playing_field.png)
+![alt text](https://github.com/nslewis/ME_588_Spring2022/blob/main/Images/playing_field.png)
 The playing field is a square plywood surface (8 ft. x 8 ft.) that has been separated into 16 equal sized
 squares. Side rails which are made of white foam board will be placed around the perimeter of the
 field to prevent robots from rolling off the field, shown as bold solid gray lines in Fig. 1. These rails
