@@ -1,4 +1,4 @@
-# ME 588 Spring2 022 Final Project
+# ME 588 Spring 2022 Final Project
 ## Whack-A-Mole Game Description
 
 In a game of Robotic Whack-A-Mole, you will be placing Mole-Whackers (foam balls or cubes) on
