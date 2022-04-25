@@ -123,9 +123,29 @@ void forward() {
   analogWrite(m4_speed, forward_speed);
 }
 
+void forward_start() {
+  int forward_speed = 40;
+  Serial.println("Going Straight");
+  digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
+  digitalWrite(m1_in2, HIGH);
+  analogWrite(m1_speed, forward_speed);
+
+  digitalWrite(m2_in2, HIGH); //clockwise for Motor 2
+  digitalWrite(m2_in1, LOW);
+  analogWrite(m2_speed, forward_speed);
+
+  digitalWrite(m3_in1, HIGH); // clockwise for Motor3
+  digitalWrite(m3_in2, LOW);
+  analogWrite(m3_speed, forward_speed);
+
+  digitalWrite(m4_in1, LOW); // Clockwise for Motor4
+  digitalWrite(m4_in2, HIGH);
+  analogWrite(m4_speed, forward_speed);
+}
+
 void adjRight() {
   Serial.println("Shift Right");
-  int right_speed = 55;
+  int right_speed = 40;
   digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
   digitalWrite(m1_in2, HIGH);
   analogWrite(m1_speed, right_speed);
@@ -146,7 +166,7 @@ void adjRight() {
 void adjLeft() {
 
   Serial.println("Shift Left");
-  int left_speed = 60;
+  int left_speed = 40;
   digitalWrite(m1_in1, HIGH); //Clockwise for Motor 1
   digitalWrite(m1_in2, LOW);
   analogWrite(m1_speed, left_speed);
@@ -164,41 +184,23 @@ void adjLeft() {
   analogWrite(m4_speed, left_speed);
 }
 
-void left() {
-  digitalWrite(m1_in1, HIGH); //CCW for Motor 1
-  digitalWrite(m2_in2, LOW);
-  analogWrite(m1_speed, 100);
-
-  digitalWrite(m2_in2, LOW); //CCW for Motor 2
-  digitalWrite(m2_in1, HIGH);
-  analogWrite(m2_speed, 100);
-
-  digitalWrite(m3_in1, HIGH); // CW for Motor3
-  digitalWrite(m3_in2, LOW);
-  analogWrite(m3_speed, 100);
-
-  digitalWrite(m4_in1, LOW); // CW for Motor4
-  digitalWrite(m4_in2, HIGH);
-  analogWrite(m4_speed, 100);
-}
-
 void right() {
   Serial.println("Full Right");
   digitalWrite(m1_in1, LOW); //CCW for Motor 1
   digitalWrite(m1_in2, HIGH);
-  analogWrite(m1_speed, 80);
+  analogWrite(m1_speed, 60);
 
   digitalWrite(m2_in2, HIGH); //CCW for Motor 2
   digitalWrite(m2_in1, LOW);
-  analogWrite(m2_speed, 80);
+  analogWrite(m2_speed, 60);
 
   digitalWrite(m3_in1, LOW); // CW for Motor3
   digitalWrite(m3_in2, HIGH);
-  analogWrite(m3_speed, 80);
+  analogWrite(m3_speed, 60);
 
   digitalWrite(m4_in1, HIGH); // CW for Motor4
   digitalWrite(m4_in2, LOW);
-  analogWrite(m4_speed, 100);
+  analogWrite(m4_speed, 80);
 }
 void stopMotor() {
   Serial.println("Stop Motor");
@@ -240,7 +242,7 @@ void loop() {
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 5000 (for a white line, use readLineWhite() instead)
   uint16_t position = qtr.readLineBlack(sensorValues);
-//  Serial.println(position);
+  //  Serial.println(position);
   delay(50);
   int maxVal = sensorValues[0];
   int maxValLoc = 0;
@@ -250,80 +252,73 @@ void loop() {
       maxValLoc = i;
     }
   }
-  //  for (uint8_t i = 0; i < SensorCount; i++)
-  //  {
-  //    Serial.print(sensorValues[i]);
-  //    Serial.print('\t');
-  //  }
-  if (flag == 0){
-   while(sensorValues[2] < 700){
-    position = qtr.readLineBlack(sensorValues);
-    forward();
-   }
-   flag = 1;
-  }
-  else{
-  // Line in the right
-  if (maxValLoc == 0) {
-    adjRight();
-  }
-
-  // Line at the middle
-  else if (maxValLoc == 1) {
-    forward();
-  }
-
-  // Line at the left
-  else if (maxValLoc == 2) {
+    for (uint8_t i = 0; i < SensorCount; i++)
+    {
+      Serial.print(sensorValues[i]);
+      Serial.print('\t');
+    }
+  if (flag == 0) {
+    while (sensorValues[1] < 700) {
+      position = qtr.readLineBlack(sensorValues);
+      forward_start();
+    }
     adjLeft();
+    delay(100);
+    flag = 1;
   }
+  else {
+    position = qtr.readLineBlack(sensorValues);
+    //  Serial.println(position);
+    delay(50);
+    maxVal = sensorValues[0];
+    maxValLoc = 0;
+    for (int i = 0; i < 3; i++) {
+      if (sensorValues[i] > maxVal) {
+        maxVal = sensorValues[i];
+        maxValLoc = i;
+      }
+    }
+    // Line in the right
+    if (maxValLoc == 0) {
+      adjRight();
+    }
 
-  position = qtr.readLineBlack(sensorValues);
-  // Pass a square
-//  if (sensorValues[3] > 700) {
-//    while (sensorValues[3] > 700) {
-//      position = qtr.readLineBlack(sensorValues);
-////      Serial.println(position);
-//      forward();
-//    }
-//    linePassed = linePassed + 1;
+    // Line at the middle
+    else if (maxValLoc == 1) {
+      forward();
+    }
+
+    // Line at the left
+    else if (maxValLoc == 2) {
+      adjLeft();
+    }
+
+    position = qtr.readLineBlack(sensorValues);
+    // Pass a square
+    //  if (sensorValues[3] > 700) {
+    //    while (sensorValues[3] > 700) {
+    //      position = qtr.readLineBlack(sensorValues);
+    ////      Serial.println(position);
+    //      forward();
+    //    }
+    //    linePassed = linePassed + 1;
     // ULTRASONIC DISTANCE
-  measured_distance = UltrasonicSensor();
-  if (measured_distance < 57 && linePassed < 3) {
-    linePassed = linePassed + 1;
-    forward();
-    delay(100);
-    stopMotor();
-    delay(500);
-    right();
-    delay(600);
-    position = qtr.readLineBlack(sensorValues);
-//    Serial.println(position);
-    //      for (uint8_t i = 0; i < 3; i++)
-    //        {
-    //          Serial.print(sensorValues[i]);
-    //          Serial.print('\t');
-    //        }
-    maxVal = sensorValues[0];
-    maxValLoc = 0;
-    for (int i = 0; i < 3; i++) {
-      if (sensorValues[i] > maxVal) {
-        maxVal = sensorValues[i];
-        maxValLoc = i;
-      }
-    }
-    //      Serial.println(maxValLoc);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-
-      //        for (uint8_t i = 0; i < 3; i++)
+    measured_distance = UltrasonicSensor();
+    if (measured_distance < 57 && linePassed < 3) {
+      linePassed = linePassed + 1;
+      forward();
+      delay(100);
+      stopMotor();
+      delay(500);
+      right();
+      delay(600);
+      position = qtr.readLineBlack(sensorValues);
+      //    Serial.println(position);
+      //      for (uint8_t i = 0; i < 3; i++)
       //        {
       //          Serial.print(sensorValues[i]);
       //          Serial.print('\t');
       //        }
-
-      right();
-      position = qtr.readLineBlack(sensorValues);
-//      Serial.println(position);
       maxVal = sensorValues[0];
       maxValLoc = 0;
       for (int i = 0; i < 3; i++) {
@@ -332,48 +327,48 @@ void loop() {
           maxValLoc = i;
         }
       }
+      //      Serial.println(maxValLoc);
+      while (maxValLoc != 0 && sensorValues[0] > 500) {
+
+        //        for (uint8_t i = 0; i < 3; i++)
+        //        {
+        //          Serial.print(sensorValues[i]);
+        //          Serial.print('\t');
+        //        }
+
+        right();
+        position = qtr.readLineBlack(sensorValues);
+        //      Serial.println(position);
+        maxVal = sensorValues[0];
+        maxValLoc = 0;
+        for (int i = 0; i < 3; i++) {
+          if (sensorValues[i] > maxVal) {
+            maxVal = sensorValues[i];
+            maxValLoc = i;
+          }
+        }
       }
       forward();
       delay(100);
       //        Serial.println(maxValLoc);
     }
 
-    measured_distance = UltrasonicSensor(); 
+   // measured_distance = UltrasonicSensor();
     if (measured_distance < 120 && linePassed == 3) {
-    linePassed = linePassed + 1;
-    forward();
-    delay(100);
-    stopMotor();
-    delay(500);
-    right();
-    delay(600);
-    position = qtr.readLineBlack(sensorValues);
-//    Serial.println(position);
-    //      for (uint8_t i = 0; i < 3; i++)
-    //        {
-    //          Serial.print(sensorValues[i]);
-    //          Serial.print('\t');
-    //        }
-    maxVal = sensorValues[0];
-    maxValLoc = 0;
-    for (int i = 0; i < 3; i++) {
-      if (sensorValues[i] > maxVal) {
-        maxVal = sensorValues[i];
-        maxValLoc = i;
-      }
-    }
-    //      Serial.println(maxValLoc);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-
-      //        for (uint8_t i = 0; i < 3; i++)
+      linePassed = linePassed + 1;
+      forward();
+      delay(100);
+      stopMotor();
+      delay(500);
+      right();
+      delay(600);
+      position = qtr.readLineBlack(sensorValues);
+      //    Serial.println(position);
+      //      for (uint8_t i = 0; i < 3; i++)
       //        {
       //          Serial.print(sensorValues[i]);
       //          Serial.print('\t');
       //        }
-
-      right();
-      position = qtr.readLineBlack(sensorValues);
-//      Serial.println(position);
       maxVal = sensorValues[0];
       maxValLoc = 0;
       for (int i = 0; i < 3; i++) {
@@ -382,49 +377,49 @@ void loop() {
           maxValLoc = i;
         }
       }
+      //      Serial.println(maxValLoc);
+      while (maxValLoc != 0 && sensorValues[0] > 500) {
+
+        //        for (uint8_t i = 0; i < 3; i++)
+        //        {
+        //          Serial.print(sensorValues[i]);
+        //          Serial.print('\t');
+        //        }
+
+        right();
+        position = qtr.readLineBlack(sensorValues);
+        //      Serial.println(position);
+        maxVal = sensorValues[0];
+        maxValLoc = 0;
+        for (int i = 0; i < 3; i++) {
+          if (sensorValues[i] > maxVal) {
+            maxVal = sensorValues[i];
+            maxValLoc = i;
+          }
+        }
       }
       forward();
       delay(100);
       //        Serial.println(maxValLoc);
     }
-  Serial.print("Line Passed: ");
-  Serial.println(linePassed);
-  measured_distance = UltrasonicSensor();
-  if (measured_distance < 120 && linePassed == 4) {
-    linePassed = linePassed + 1;
-    forward();
-    delay(100);
-    stopMotor();
-    delay(500);
-    right();
-    delay(10000);
-    position = qtr.readLineBlack(sensorValues);
-//    Serial.println(position);
-    //      for (uint8_t i = 0; i < 3; i++)
-    //        {
-    //          Serial.print(sensorValues[i]);
-    //          Serial.print('\t');
-    //        }
-    maxVal = sensorValues[0];
-    maxValLoc = 0;
-    for (int i = 0; i < 3; i++) {
-      if (sensorValues[i] > maxVal) {
-        maxVal = sensorValues[i];
-        maxValLoc = i;
-      }
-    }
-    //      Serial.println(maxValLoc);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-
-      //        for (uint8_t i = 0; i < 3; i++)
+    //Serial.print("Line Passed: ");
+    //Serial.println(linePassed);
+    //measured_distance = UltrasonicSensor();
+    if (measured_distance < 120 && linePassed == 4) {
+      linePassed = linePassed + 1;
+      forward();
+      delay(100);
+      stopMotor();
+      delay(500);
+      right();
+      delay(10000);
+      position = qtr.readLineBlack(sensorValues);
+      //    Serial.println(position);
+      //      for (uint8_t i = 0; i < 3; i++)
       //        {
       //          Serial.print(sensorValues[i]);
       //          Serial.print('\t');
       //        }
-
-      right();
-      position = qtr.readLineBlack(sensorValues);
-//      Serial.println(position);
       maxVal = sensorValues[0];
       maxValLoc = 0;
       for (int i = 0; i < 3; i++) {
@@ -433,12 +428,32 @@ void loop() {
           maxValLoc = i;
         }
       }
+      //      Serial.println(maxValLoc);
+      while (maxValLoc != 0 && sensorValues[0] > 500) {
+
+        //        for (uint8_t i = 0; i < 3; i++)
+        //        {
+        //          Serial.print(sensorValues[i]);
+        //          Serial.print('\t');
+        //        }
+
+        right();
+        position = qtr.readLineBlack(sensorValues);
+        //      Serial.println(position);
+        maxVal = sensorValues[0];
+        maxValLoc = 0;
+        for (int i = 0; i < 3; i++) {
+          if (sensorValues[i] > maxVal) {
+            maxVal = sensorValues[i];
+            maxValLoc = i;
+          }
+        }
       }
       forward();
       delay(100);
       //        Serial.println(maxValLoc);
     }
-  Serial.print("Line Passed: ");
-  Serial.println(linePassed);
+    //Serial.print("Line Passed: ");
+    //Serial.println(linePassed);
   }
-} 
+}
