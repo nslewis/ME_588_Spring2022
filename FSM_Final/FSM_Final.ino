@@ -1,6 +1,7 @@
 // Color Sensor Pins and Variables
 #include <Wire.h>
 #include <QTRSensors.h>
+#include<PID_v1.h>
 #include"Adafruit_TCS34725.h"
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_101MS, TCS34725_GAIN_4X);
 uint8_t colorList[3] = {0, 0, 0};
@@ -14,42 +15,44 @@ const int match_LED = 35;
 int color_selected;
 // Motor Pins
 /*          41  8  5  4
-    M1-----Line Follower---------M4  Watch from Here for CW and CCW
+    left-----Line Follower---------M3  Watch from Here for CW and CCW
     |                             |  CW is forward CCW is backward
     |                             |
-    M2---------------------------M3
+    --------------------------------
 */
 // Motor 1
-const int m1_speed = 9;
-const int m1_in1 = 23;
-const int m1_in2 = 22;
+const int left_speed = 9;
+const int left_in1 = 23;
+const int left_in2 = 22;
 // Motor 2
-const int m2_speed = 3;
-const int m2_in1 = 24;
-const int m2_in2 = 25;
-// Motor 3
-const int m3_speed = 6;
-const int m3_in1 = 12;
-const int m3_in2 = 13;
-// Motor 4
-const int m4_speed = 7;
-const int m4_in1 = 11;
-const int m4_in2 = 10;
+const int right_speed = 7;
+const int right_in1 = 12;
+const int right_in2 = 13;
 
+// PID Control Stuff
+double kp = 0.03;
+double kd = 0.05;
+double ki = 0;
+
+double setpoint = 2000;
+double input, output;
+PID myPID(&input, &output, &setpoint, kp, ki, kd, DIRECT);
 
 // Mole Whacker Servo Pins
 #include <Servo.h>
 const int servo_pin = 1;
 Servo myservo;
-int drop_flag = 0; // 0 Means Ball Not Dropped, 1 Means Ball Dropped
+int drop_flag1 = 0; // 0 Means Ball Not Dropped, 1 Means Ball Dropped
+int drop_flag2 = 0; // 0 Means Ball Not Dropped, 1 Means Ball Dropped
+int drop_flag3 = 0; // 0 Means Ball Not Dropped, 1 Means Ball Dropped
 
 // Line Follower Stuff
 
 /*          41  8  5  4
-    M1-----Line Follower---------M4  Watch from Here for CW and CCW
+    left-----Line Follower---------M4  Watch from Here for CW and CCW
     |                             |  CW is forward CCW is backward
     |                             |
-    M2---------------------------M3
+    right---------------------------M3
 */
 QTRSensors qtr;
 const uint8_t SensorCount = 4;
@@ -63,7 +66,6 @@ int linePassed = 0;
 long int duration; // variable for the duration of sound wave travel
 int distance; // variable for the distance measurement
 int measured_distance;
-int start_flag = 0;
 
 
 // Global States
@@ -78,6 +80,9 @@ const int END_GAME_STATE = 6;
 /****************/
 void setup() {
 
+  // PID Stuff
+
+  myPID.SetOutputLimits(-20, 20);
   //Ultrasonic Sensor Pin Declarations
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
   pinMode(echoPin, INPUT); // Sets the echoPin as an INPUT
@@ -104,20 +109,14 @@ void setup() {
   pinMode(RYB_LED[2], OUTPUT);
 
   // Motor Setup
-  pinMode(m1_speed, OUTPUT);
-  pinMode(m2_speed, OUTPUT);
-  pinMode(m3_speed, OUTPUT);
-  pinMode(m4_speed, OUTPUT);
+  pinMode(left_speed, OUTPUT);
+  pinMode(right_speed, OUTPUT);
 
-  pinMode(m1_in1, OUTPUT);
-  pinMode(m2_in1, OUTPUT);
-  pinMode(m3_in1, OUTPUT);
-  pinMode(m4_in1, OUTPUT);
+  pinMode(left_in1, OUTPUT);
+  pinMode(right_in1, OUTPUT);
 
-  pinMode(m1_in2, OUTPUT);
-  pinMode(m2_in2, OUTPUT);
-  pinMode(m3_in2, OUTPUT);
-  pinMode(m4_in2, OUTPUT);
+  pinMode(left_in2, OUTPUT);
+  pinMode(right_in2, OUTPUT);
 
   // Servo Setup
   myservo.attach(servo_pin);
@@ -127,9 +126,8 @@ void setup() {
   qtr.setTypeRC();
   // qtr.setSensorPins((const uint8_t[]){3, 4, 5, 6, 7, 8, 9, 10}, SensorCount);
   qtr.setSensorPins((const uint8_t[]) {
-    4, 5, 8, 41
+    4, 49, 5, 41, 8
   }, SensorCount);
-  qtr.setEmitterPin(2);
 
   delay(500);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -161,104 +159,46 @@ void setup() {
   }
   Serial.println();
   Serial.println();
+  myPID.SetMode(AUTOMATIC);
   delay(1000);
 
 }
 
 // Motor Move Function like forwards right left etc
-void forward() {
-  int forward_speed = 50;
-  Serial.println("Going Straight");
-  digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
-  digitalWrite(m1_in2, HIGH);
-  analogWrite(m1_speed, forward_speed);
-
-  digitalWrite(m2_in2, HIGH); //clockwise for Motor 2
-  digitalWrite(m2_in1, LOW);
-  analogWrite(m2_speed, forward_speed);
-
-  digitalWrite(m3_in1, HIGH); // clockwise for Motor3
-  digitalWrite(m3_in2, LOW);
-  analogWrite(m3_speed, forward_speed);
-
-  digitalWrite(m4_in1, LOW); // Clockwise for Motor4
-  digitalWrite(m4_in2, HIGH);
-  analogWrite(m4_speed, forward_speed);
-}
-
-void adjRight() {
-  Serial.println("Shift Right");
-  int right_speed = 55;
-  digitalWrite(m1_in1, LOW); //Clockwise for Motor 1
-  digitalWrite(m1_in2, HIGH);
-  analogWrite(m1_speed, right_speed);
-
-  digitalWrite(m2_in2, HIGH); //clockwise for Motor 2
-  digitalWrite(m2_in1, LOW);
-  analogWrite(m2_speed, right_speed);
-
-  digitalWrite(m3_in1, LOW); // clockwise for Motor3
-  digitalWrite(m3_in2, HIGH);
-  analogWrite(m3_speed, right_speed);
-
-  digitalWrite(m4_in1, HIGH); // Connections for Motor4
-  digitalWrite(m4_in2, LOW);
-  analogWrite(m4_speed, right_speed);
-}
-
-void adjLeft() {
-
-  Serial.println("Shift Left");
-  int left_speed = 60;
-  digitalWrite(m1_in1, HIGH); //Clockwise for Motor 1
-  digitalWrite(m1_in2, LOW);
-  analogWrite(m1_speed, left_speed);
-
-  digitalWrite(m2_in2, LOW); //clockwise for Motor 2
-  digitalWrite(m2_in1, HIGH);
-  analogWrite(m2_speed, left_speed);
-
-  digitalWrite(m3_in1, HIGH); // clockwise for Motor3
-  digitalWrite(m3_in2, LOW);
-  analogWrite(m3_speed, left_speed);
-
-  digitalWrite(m4_in1, LOW); // Connections for Motor4
-  digitalWrite(m4_in2, HIGH);
-  analogWrite(m4_speed, left_speed);
-}
 void right() {
   Serial.println("Full Right");
-  digitalWrite(m1_in1, LOW); //CCW for Motor 1
-  digitalWrite(m1_in2, HIGH);
-  analogWrite(m1_speed, 80);
+  digitalWrite(left_in1, LOW); //CCW for Motor 1
+  digitalWrite(left_in2, HIGH);
+  analogWrite(left_speed, 80);
 
-  digitalWrite(m2_in2, HIGH); //CCW for Motor 2
-  digitalWrite(m2_in1, LOW);
-  analogWrite(m2_speed, 80);
+  digitalWrite(right_in2, HIGH); //CCW for Motor 2
+  digitalWrite(right_in1, LOW);
+  analogWrite(right_speed, 80);
 
-  digitalWrite(m3_in1, LOW); // CW for Motor3
-  digitalWrite(m3_in2, HIGH);
-  analogWrite(m3_speed, 80);
+}
 
-  digitalWrite(m4_in1, HIGH); // CW for Motor4
-  digitalWrite(m4_in2, LOW);
-  analogWrite(m4_speed, 100);
+void forward() {
+  Serial.println("Full Straight");
+  digitalWrite(left_in1, LOW); //CCW for Motor 1
+  digitalWrite(left_in2, HIGH);
+  analogWrite(left_speed, 80);
+
+  digitalWrite(right_in2, LOW); //CCW for Motor 2
+  digitalWrite(right_in1, HIGH);
+  analogWrite(right_speed, 80);
+
 }
 void stopMotor() {
   Serial.println("Stop Motor");
-  digitalWrite(m1_in1, LOW); //Stop for Motor 1
-  digitalWrite(m1_in2, LOW);
+  digitalWrite(left_in1, LOW); //Stop for Motor 1
+  digitalWrite(left_in2, LOW);
 
-  digitalWrite(m2_in2, LOW); //Stop for Motor 2
-  digitalWrite(m2_in1, LOW);
+  digitalWrite(right_in2, LOW); //Stop for Motor 2
+  digitalWrite(right_in1, LOW);
+  drop_flag1 = 0;
+  drop_flag2 = 0;
+  drop_flag3 = 0;
 
-
-  digitalWrite(m3_in1, LOW); // Stop for Motor3
-  digitalWrite(m3_in2, LOW);
-
-
-  digitalWrite(m4_in1, LOW); // Stop for Motor4
-  digitalWrite(m4_in2, LOW);
 }
 // Ultrasonic Stuff
 double UltrasonicSensor()
@@ -281,170 +221,159 @@ double UltrasonicSensor()
   return distance;
 }
 
-// State Functions
-// Max Location of Black Line
-int maxValLoc_func(uint16_t sensorValues[]) {
-  int maxVal = sensorValues[0];
-  int maxValLoc = 0;
-  for (int i = 0; i < 3; i++) {
-    if (sensorValues[i] > maxVal) {
-      maxVal = sensorValues[i];
-      maxValLoc = i;
-    }
-  }
-  return maxValLoc;
-}
+
 void initial_move() {
   int position;
-  if (start_flag == 0) {
-    while (sensorValues[2] < 700) {
-      position = qtr.readLineBlack(sensorValues);
-      forward();
-    }
-    stopMotor();
-    Serial.println("Start from White Successful");
-    start_flag = 1;
-    STATE = FORWARD_STATE;
-  }
-  else {
-    STATE = INITIAL_STATE;
-  }
-}
-// Move Forward Function
-int move_forward(int color_selected) {
-  // read calibrated sensor values and obtain a measure of the line position
-  // from 0 to 5000 (for a white line, use readLineWhite() instead)
-  int pos_distance[3] = {165, 135, 57};
-  int position = qtr.readLineBlack(sensorValues);
-  delay(50);
-  int maxValLoc = maxValLoc_func(sensorValues);
-  Serial.print("Max Val Loc: ");
-  Serial.println(maxValLoc);
-  for (uint8_t i = 0; i < SensorCount; i++)
-  {
-    Serial.print(sensorValues[i]);
-    Serial.print('\t');
-  }
-  // Necessary Corrections to Maintain Straight Line
-  // Line in the right
-  maxValLoc = maxValLoc_func(sensorValues);
-  if (maxValLoc == 0) {
-    adjRight();
-  }
-
-  // Line at the middle
-  else if (maxValLoc == 1) {
+  while (sensorValues[1] < 700) {
+    position = qtr.readLineBlack(sensorValues);
     forward();
   }
+  stopMotor();
+  Serial.println("Start from White Successful");
+  STATE = FORWARD_STATE;
+}
 
-  // Line at the left
-  else if (maxValLoc == 2) {
-    adjLeft();
-  }
-  position = qtr.readLineBlack(sensorValues); // Update Position
-  // ULTRASONIC DISTANCE
-  measured_distance = UltrasonicSensor();
-  if (measured_distance == pos_distance[0] || measured_distance == pos_distance[1] || measured_distance == pos_distance[2]) {
-    int lux = tcs.getRGB(&colorList[0], &colorList[1], &colorList[2]);
-    if (lux > 700) {
-      if (colorList[0] > 60 && color_selected == 0) {
-        digitalWrite(match_LED, HIGH);
-        STATE = DROP_STATE;
-      }
-      else if (colorList[0] > 30 && colorList[1] > 12 && colorList[2] < 5 && color_selected == 1) {
-        digitalWrite(match_LED, HIGH);
-        STATE = DROP_STATE;
-      }
-      else if (colorList[2] > 30 && color_selected == 2) {
-        digitalWrite(match_LED, HIGH);
-        STATE = DROP_STATE;
-      }
-      else {
-        digitalWrite(match_LED, LOW);
-        STATE = FORWARD_STATE;
-      }
+void color_check() {
+  int lux = tcs.getRGB(&colorList[0], &colorList[1], &colorList[2]);
+  if (lux > 700) {
+    if (colorList[0] > 60 && color_selected == 0) {
+      digitalWrite(match_LED, HIGH);
+      STATE = DROP_STATE;
+    }
+    else if (colorList[0] > 30 && colorList[1] > 12 && colorList[2] < 5 && color_selected == 1) {
+      digitalWrite(match_LED, HIGH);
+      STATE = DROP_STATE;
+    }
+    else if (colorList[2] > 30 && color_selected == 2) {
+      digitalWrite(match_LED, HIGH);
+      STATE = DROP_STATE;
     }
     else {
       digitalWrite(match_LED, LOW);
       STATE = FORWARD_STATE;
     }
   }
+  else {
+    digitalWrite(match_LED, LOW);
+    STATE = FORWARD_STATE;
+  }
+}
+
+int square_check(int measured_distance) {
+  int success = 0;
+  if (measured_distance > 55 && measured_distance < 65 && drop_flag1 == 0) {
+    success = 1;
+    drop_flag1 = 1;
+    color_check();
+  }
+  else if (measured_distance > 125 && measured_distance < 135 && drop_flag2 == 0) {
+    success = 1;
+    drop_flag2 = 1;
+    color_check();
+  }
+  else if (measured_distance > 165 && measured_distance < 175 && drop_flag3 == 0) {
+    success = 1;
+    drop_flag3 = 1;
+    color_check();
+  }
+  return success;
+}
+// Move Forward Function
+int move_forward(int color_selected) {
+  // read calibrated sensor values and obtain a measure of the line position
+  // from 0 to 5000 (for a white line, use readLineWhite() instead)
+  int sensors[5];
+  int pos_distance[3] = {165, 135, 57};
+
+  int position = qtr.readLineBlack(sensors);
+  input = position;
+
+  float left_baseSpeed = 90;
+  float right_baseSpeed = 100;
+
+  myPID.Compute();
+
+  float left_totalSpeed = left_baseSpeed + output;
+  float right_totalSpeed = right_baseSpeed - output;
+
+  if (left_totalSpeed < 0) {
+    left_totalSpeed = 80;
+  }
+  if (right_totalSpeed < 0) {
+    right_totalSpeed = 90;
+  }
+  if (left_totalSpeed > 255) {
+    left_totalSpeed = 150;
+  }
+  if (right_totalSpeed > 255) {
+    right_totalSpeed = 150;
+  }
+
+  Serial.print(output);
+  Serial.print("       ");
+  Serial.print(left_totalSpeed);
+  Serial.print("       ");
+  Serial.println(right_totalSpeed);
+
+  digitalWrite(left_in2, HIGH);
+  digitalWrite(left_in1, LOW);
+  //left_totalSpeed = 80;
+  analogWrite(left_speed, left_totalSpeed);
+
+  digitalWrite(right_in1, HIGH);
+  digitalWrite(right_in2, LOW);
+  //right_totalSpeed = 90;
+  analogWrite(right_speed, right_totalSpeed);
+
+
+  // ULTRASONIC DISTANCE
+  measured_distance = UltrasonicSensor();
+
+  // Does square check and color drop maybe
+  square_check(measured_distance);
+
+
   // First Turn
+  measured_distance = UltrasonicSensor(); // Update Measured Distance
   if (measured_distance < 57 && linePassed < 3) {
     linePassed = linePassed + 1;
-    forward();
     delay(100);
     stopMotor();
     delay(500);
     right();
-    delay(600);
-    position = qtr.readLineBlack(sensorValues); // Update Position
-    maxValLoc = maxValLoc_func(sensorValues);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-      right();
-      position = qtr.readLineBlack(sensorValues); // Update Position
-      maxValLoc = maxValLoc_func(sensorValues);
-    }
+    delay(600); // 90 Degree Turn
   }
-  forward();
-  delay(100);
   measured_distance = UltrasonicSensor(); // Update Measured Distance
+
   // Second Turn
   if (measured_distance < 120 && linePassed == 3) {
     linePassed = linePassed + 1;
-    forward();
     delay(100);
     stopMotor();
     delay(500);
     right();
-    delay(600);
-    position = qtr.readLineBlack(sensorValues);
-    maxValLoc = maxValLoc_func(sensorValues);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-      right();
-      position = qtr.readLineBlack(sensorValues);
-      maxValLoc = maxValLoc_func(sensorValues);
-    }
-    forward();
-    delay(100);
+    delay(600); // 90 Degree Turn
   }
-  measured_distance = UltrasonicSensor();
+
+
+  measured_distance = UltrasonicSensor(); // Update Measured Distance
   // Third Turn
   if (measured_distance < 120 && linePassed == 4) {
     linePassed = linePassed + 1;
-    forward();
     delay(100);
     stopMotor();
     delay(500);
     right();
-    delay(600); // Make This 90 Degree Turn
+    delay(600); // Make This 90 Degree Turn For center
     position = qtr.readLineBlack(sensorValues);
-    maxValLoc = maxValLoc_func(sensorValues);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-      right();
-      position = qtr.readLineBlack(sensorValues);
-      maxValLoc = maxValLoc_func(sensorValues);
-    }
-    forward();
-    delay(100);
   }
-  if (measured_distance < 120 && linePassed == 5) {
+  else if (measured_distance < 120 && linePassed == 5) {
     linePassed = linePassed + 1;
-    forward();
     delay(100);
     stopMotor();
     delay(500);
     right();
-    delay(600); // Make This 90 Degree Turn
-    position = qtr.readLineBlack(sensorValues);
-    maxValLoc = maxValLoc_func(sensorValues);
-    while (maxValLoc != 0 && sensorValues[0] > 500) {
-      right();
-      position = qtr.readLineBlack(sensorValues);
-      maxValLoc = maxValLoc_func(sensorValues);
-    }
-    forward();
-    delay(100);
+    delay(600); // Make This 90 Degree Turn for center
   }
   if (linePassed == 6) {
     STATE = END_GAME_STATE;
@@ -502,7 +431,7 @@ void loop() {
       Serial.println("Drop State");
       STATE = drop_ball();
       break;
-    case END_GAME_STATE:
+    case END_GAME_STATE: // All LEDS FLASH NEED TO ADD TIMER AS WELL
       Serial.println("End Game State");
       stopMotor();
       break;
