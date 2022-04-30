@@ -1,10 +1,10 @@
-// Color Sensor Pins and Variables
+
 #include <Wire.h>
 #include <QTRSensors.h>
 #include<PID_v1.h>
 #include"Adafruit_TCS34725.h"
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_101MS, TCS34725_GAIN_4X);
-uint8_t colorList[3] = {0, 0, 0};
+
 
 // LED and Button Pins
 const int RYB_button[3] = {42, 46, 36};
@@ -12,21 +12,24 @@ const int RYB_LED[3] = {31, 33, 34};
 const int start_button = 38;
 const int start_LED = 32;
 const int match_LED = 35;
+
+// Color Pins and Stuff
+uint8_t colorList[3] = {0, 0, 0};
 int color_selected;
 unsigned long timeEnd;
 unsigned long timeStart;
 // Motor Pins
-/*          41  8  5  4
+/*          1 1 1 1 1
     left-----Line Follower---------M3  Watch from Here for CW and CCW
     |                             |  CW is forward CCW is backward
     |                             |
     --------------------------------
 */
-// Motor 1
+// Motor 1 Pins
 const int left_speed = 9;
 const int left_in1 = 23;
 const int left_in2 = 22;
-// Motor 2
+// Motor 2 Pins
 const int right_speed = 7;
 const int right_in2 = 12;
 const int right_in1 = 13;
@@ -129,9 +132,7 @@ void setup() {
   // configure the sensors
   qtr.setTypeRC();
   // qtr.setSensorPins((const uint8_t[]){3, 4, 5, 6, 7, 8, 9, 10}, SensorCount);
-  qtr.setSensorPins((const uint8_t[]) {
-    4, 49, 5, 41, 8
-  }, SensorCount);
+  qtr.setSensorPins((const uint8_t[]) {4, 49, 5, 41, 8}, SensorCount);
 
   delay(500);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -144,23 +145,8 @@ void setup() {
   {
     qtr.calibrate();
   }
-  //  digitalWrite(LED_BUILTIN, LOW); // turn off Arduino's LED to indicate we are through with calibration
-  //
-  //  // print the calibration minimum values measured when emitters were on
-  //  Serial.begin(9600);
-  //  for (uint8_t i = 0; i < SensorCount; i++)
-  //  {
-  //    Serial.print(qtr.calibrationOn.minimum[i]);
-  //    Serial.print(' ');
-  //  }
-  //  Serial.println();
-  //
-  //  // print the calibration maximum values measured when emitters were on
-  //  for (uint8_t i = 0; i < SensorCount; i++)
-  //  {
-  //    Serial.print(qtr.calibrationOn.maximum[i]);
-  //    Serial.print(' ');
-  //  }
+
+  // Saved Calibration Values
   qtr.calibrationOn.minimum[0] = 534;
   qtr.calibrationOn.minimum[1] = 412;
   qtr.calibrationOn.minimum[2] = 412;
@@ -179,7 +165,7 @@ void setup() {
 
 }
 
-// Motor Move Function like forwards right left etc
+// Motor Move Functions
 void right() {
   Serial.println("Full Right");
   digitalWrite(left_in1, LOW); //CCW for Motor 1
@@ -227,13 +213,17 @@ double UltrasonicSensor()
   // Calculating the distance
   distance = duration * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
   // Displays the distance on the Serial Monitor
-//  Serial.print("Distance: ");
-//  Serial.print(distance);
-//  Serial.println(" cm");
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
   return distance;
 }
 
+/* Function to Move from White box to black line
+Essentially, we move the robot forward till one of the line sensors detects a threshold value. 
+Then we get out of the loop and proceed with the rest of the states. 
 
+ */
 void initial_move() {
   int position;
   timeEnd = millis();
@@ -246,16 +236,17 @@ void initial_move() {
   STATE = FORWARD_STATE;
 }
 
+// Function to check the color and accordingly change states
 void color_check() {
   int lux = tcs.getRGB(&colorList[0], &colorList[1], &colorList[2]);
   Serial.print("   Color Selected:      ");
   Serial.print(color_selected);
-    Serial.print("   Red:      ");
-    Serial.print(colorList[0]);
-    Serial.print("   Yellow:      ");
-    Serial.print(colorList[1]);
-    Serial.print("   Blue:      ");
-    Serial.println(colorList[2]);
+  Serial.print("   Red:      ");
+  Serial.print(colorList[0]);
+  Serial.print("   Yellow:      ");
+  Serial.print(colorList[1]);
+  Serial.print("   Blue:      ");
+  Serial.println(colorList[2]);
   if (colorList[0] > 60 && color_selected == 0) {
     digitalWrite(match_LED, HIGH);
     STATE = DROP_STATE;
@@ -274,7 +265,12 @@ void color_check() {
     STATE = FORWARD_STATE;
   }
 }
-
+/* This function is needed to know whether we have passed a given square or not
+ *  it is to ensure we do not drop the ball twice in one square. 
+ *  
+ *  We made a check with a range of distances for each square. This way the 
+ *  color_check function is triggered only once per square.  
+ */
 int square_check(int measured_distance) {
   int success = 0;
   if (measured_distance > 20 && measured_distance < 48 && drop_flag1 == 0) {
@@ -300,7 +296,10 @@ int square_check(int measured_distance) {
   }
   return success;
 }
-// Move Forward Function
+/* Move Forward Function: 
+ *  This function implements PID control for the differential drive robot
+ *  There is also open loop controls for the turns which is defined in this function. 
+ */
 int move_forward(int color_selected) {
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 5000 (for a white line, use readLineWhite() instead)
@@ -330,20 +329,13 @@ int move_forward(int color_selected) {
     right_totalSpeed = right_baseSpeed;
   }
 
-//  Serial.print(output);
-//  Serial.print("       ");
-//  Serial.print(left_totalSpeed);
-//  Serial.print("       ");
-//  Serial.println(right_totalSpeed);
 
   digitalWrite(left_in2, HIGH);
   digitalWrite(left_in1, LOW);
-  //left_totalSpeed = 80;
   analogWrite(left_speed, left_totalSpeed);
 
   digitalWrite(right_in1, HIGH);
   digitalWrite(right_in2, LOW);
-  //right_totalSpeed = 90;
   analogWrite(right_speed, right_totalSpeed);
 
 
@@ -353,6 +345,11 @@ int move_forward(int color_selected) {
   // Does square check and color drop maybe
   square_check(measured_distance);
 
+  /* Open Loop Turns
+   *  The turns were set using delays, and forcing the robot to turn right for some time. When it existed the loop
+   *  it should go back to the forward state with PID control for the line. Then we have a variable linePassed that changes so that we only turn
+   *  at specific points in the path we intend to follow. 
+   */
 
   // First Turn
   measured_distance = UltrasonicSensor(); // Update Measured Distance
@@ -405,6 +402,9 @@ int move_forward(int color_selected) {
   return STATE;
 }
 
+/* Drop Ball Function
+ * The servo adjust a certain angle and back to drop the mole whacker and be ready for the next trigger. 
+ */
 int drop_ball() {
   int angle_min = 88;
   int angle_max = 150;
@@ -427,6 +427,9 @@ int drop_ball() {
 
   return FORWARD_STATE;
 }
+/* Definition of the STATES
+ * The States are defined here, and will be further described in the report. 
+ */
 void loop() {
   // read calibrated sensor values and obtain a measure of the line position
   // from 0 to 5000 (for a white line, use readLineWhite() instead)
