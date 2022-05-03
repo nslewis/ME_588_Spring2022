@@ -1,6 +1,8 @@
 # ME 588 Spring 2022 Final Project
 ## Whack-A-Mole Game Description
 
+![alt text](https://github.com/nslewis/ME_588_Spring2022/blob/main/Images/robot_1.jpeg)
+
 In a game of Robotic Whack-A-Mole, you will be placing Mole-Whackers (foam balls or cubes) on
 squares with Moles. The squares that Moles are occupying will be identified by color, with the field
 having 3 different color squares (not including the starting square which will be white). At the start of
